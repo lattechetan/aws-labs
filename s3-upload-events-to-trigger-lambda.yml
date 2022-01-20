@@ -8,15 +8,15 @@ Parameters:
   pngBucketName:
     Description: S3 bucket name to copy .png files.
     Type: String
-    Default: chetan-latte-files-png
-  jpgBucketName:
-    Description: S3 bucket name to copy .jpg files.
+    Default: chetan-latte-images
+  txtBucketName:
+    Description: S3 bucket name to copy .txt files.
     Type: String
-    Default: chetan-latte-files-jpg
+    Default: chetan-latte-txt
   pdfBucketName:
     Description: S3 bucket name to copy .pdf files.
     Type: String
-    Default: chetan-latte-files-pdf
+    Default: chetan-latte-pdf
 Resources:
   S3NotificationLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -28,7 +28,7 @@ Resources:
 
           print('Loading function')
           png_bucket = os.environ['pngBucketName']
-          jpg_bucket = os.environ['jpgBucketName']
+          txt_bucket = os.environ['txtBucketName']
           pdf_bucket = os.environ['pdfBucketName']
 
           s3 = boto3.resource('s3')
@@ -43,14 +43,14 @@ Resources:
             print("dest_bucket: " + str(dest_bucket))
             print("key: " + str(key))
             s3.meta.client.copy(copy_source, dest_bucket, key)
-            print (str(key) + "is a copied to " + str(dest_bucket))
+            print ("File " + str(key) + " is a copied to S3 bucket " + str(dest_bucket))
             
           def lambda_handler(event, context):
             #print("Received event: " + json.dumps(event, indent=2))
             # Get the object from the event and show its content type
             print("event: " + str(event))
             bucket = event['Records'][0]['s3']['bucket']['name']
-            print("bucket:" + str(bucket))
+            print("bucket: " + str(bucket))
             key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
             print("key: " + str(key))
             try:
@@ -60,20 +60,20 @@ Resources:
               if file_extention == ".png":
                 print (str(key) + " is a png file!" )
                 dest_bucket = png_bucket
-                print ("copying file " + str(key) + " to " + str(dest_bucket))
+                print ("copying file " + str(key) + " to S3 bucket " + str(dest_bucket))
                 copy_to_dest_s3(bucket, key, dest_bucket)
-              elif file_extention == ".jpg":
-                print (str(key) + " is a jpg file!" )
-                dest_bucket = jpg_bucket
-                print ("copying file " + str(key) + " to " + str(dest_bucket))
+              elif file_extention == ".txt":
+                print (str(key) + " is a txt file!" )
+                dest_bucket = txt_bucket
+                print ("copying file " + str(key) + " to S3 bucket " + str(dest_bucket))
                 copy_to_dest_s3(bucket, key, dest_bucket)
               elif file_extention == ".pdf":
                 print (str(key) + " is a pdf file!" )
                 dest_bucket = pdf_bucket
-                print ("copying file " + str(key) + " to " + str(dest_bucket))
+                print ("copying file " + str(key) + " to S3 bucket " + str(dest_bucket))
                 copy_to_dest_s3(bucket, key, dest_bucket)
               else:
-                print (str(key) + "is an unknown file format" )
+                print (str(key) + " is an unknown file format and will not be copied to any bucket" )
             except Exception as e:
               print(e)
               print("Error getting file extention type and copying file to destination bucket")
@@ -85,7 +85,7 @@ Resources:
           pngBucketName:
             Ref: pngBucketName
           jpgBucketName:
-            Ref: jpgBucketName
+            Ref: txtBucketName
           pdfBucketName:
             Ref: pdfBucketName
       Runtime: python3.6
