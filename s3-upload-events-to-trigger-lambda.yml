@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Sample template which trigger a Lambda function to move specific file extention types to specific buckets from S3 bucket upload/put events
+Parameters:
+  NotificationBucket:
+    Type: String
+    Description: S3 bucket which is used for Lambda event notification
+    Default: chetan-latte-files-upload
+  pngBucketName:
+    Description: S3 bucket name to copy .png files.
+    Type: String
+    Default: chetan-latte-files-png
+  jpgBucketName:
+    Description: S3 bucket name to copy .jpg files.
+    Type: String
+    Default: chetan-latte-files-jpg
+  pdfBucketName:
+    Description: S3 bucket name to copy .pdf files.
+    Type: String
+    Default: chetan-latte-files-pdf
+Resources:
+  S3NotificationLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        ZipFile:  |
+          import os, json, boto3
+          import urllib.parse
+
+          print('Loading function')
+          png_bucket = os.environ['pngBucketName']
+          jpg_bucket = os.environ['jpgBucketName']
+          pdf_bucket = os.environ['pdfBucketName']
+
+          s3 = boto3.resource('s3')
+
+          def copy_to_dest_s3(src_bucket, key, dest_bucket):
+            #create a source dictionary that specifies bucket name and key name of the object to be copied
+            copy_source = {
+              'Bucket': src_bucket,
+              'Key': key
+              }
+            print("copy_source: " + str(copy_source))
+            print("dest_bucket: " + str(dest_bucket))
+            print("key: " + str(key))
+            s3.meta.client.copy(copy_source, dest_bucket, key)
+            print (str(key) + "is a copied to " + str(dest_bucket))
+            
+          def lambda_handler(event, context):
+            #print("Received event: " + json.dumps(event, indent=2))
+            # Get the object from the event and show its content type
+            print("event: " + str(event))
+            bucket = event['Records'][0]['s3']['bucket']['name']
+            print("bucket:" + str(bucket))
+            key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
+            print("key: " + str(key))
+            try:
+              # Split the extension from the key and normalise it to lowercase.
+              file_extention = os.path.splitext(key)[-1].lower()
+              # Now we can simply use == to check for equality, no need for wildcards.
+              if file_extention == ".png":
+                print (str(key) + " is a png file!" )
+                dest_bucket = png_bucket
+                print ("copying file " + str(key) + " to " + str(dest_bucket))
+                copy_to_dest_s3(bucket, key, dest_bucket)
+              elif file_extention == ".jpg":
+                print (str(key) + " is a jpg file!" )
+                dest_bucket = jpg_bucket
+                print ("copying file " + str(key) + " to " + str(dest_bucket))
+                copy_to_dest_s3(bucket, key, dest_bucket)
+              elif file_extention == ".pdf":
+                print (str(key) + " is a pdf file!" )
+                dest_bucket = pdf_bucket
+                print ("copying file " + str(key) + " to " + str(dest_bucket))
+                copy_to_dest_s3(bucket, key, dest_bucket)
+              else:
+                print (str(key) + "is an unknown file format" )
+            except Exception as e:
+              print(e)
+              print("Error getting file extention type and copying file to destination bucket")
+              raise e
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaIAMRole.Arn
+      Environment:
+        Variables:
+          pngBucketName:
+            Ref: pngBucketName
+          jpgBucketName:
+            Ref: jpgBucketName
+          pdfBucketName:
+            Ref: pdfBucketName
+      Runtime: python3.6
+      Timeout: 5
+  LambdaInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt S3NotificationLambdaFunction.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !Sub 'arn:aws:s3:::${NotificationBucket}'
+  LambdaIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:*'
+                Resource: 'arn:aws:s3:::*'
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
+  NotificationS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain            
+    Properties:
+      BucketName: !Ref NotificationBucket         
+      NotificationConfiguration:
+        LambdaConfigurations:
+            - Event: 's3:ObjectCreated:Put'
+              Function: !GetAtt S3NotificationLambdaFunction.Arn
