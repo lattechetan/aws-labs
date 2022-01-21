@@ -1,5 +1,14 @@
 # aws-labs
 
+# Pre-requisites:
+
+RW/Admin Access to below services
+
+1. IAM 
+2. CloudFormation
+3. CloudWatch
+4. Lambda
+5. S3
 
 # Steps to create S3 bucket and launch Cfn stack using template provided in repo
 1. [Create 3 S3 buckets](https://docs.aws.amazon.com/quickstarts/latest/s3backup/step-1-create-bucket.html)
