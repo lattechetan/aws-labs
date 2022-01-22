@@ -84,7 +84,7 @@ Resources:
         Variables:
           pngBucketName:
             Ref: pngBucketName
-          jpgBucketName:
+          txtBucketName:
             Ref: txtBucketName
           pdfBucketName:
             Ref: pdfBucketName
